@@ -155,6 +155,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b59927a7ac63a85468b7afce4a36cea8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  NavUnitSize: 10
+  NavGridSizeX: 10
+  NavGridSizeY: 10
+  NavGridSizeZ: 10
+  ShowNavGrid: 1
+  ShowNavUnits: 1
 --- !u!1 &170076733
 GameObject:
   m_ObjectHideFlags: 0
