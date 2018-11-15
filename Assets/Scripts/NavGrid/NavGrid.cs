@@ -1,25 +1,119 @@
 ﻿using UnityEngine;
 
-namespace Azee.NavGrid
+namespace Azee.PathFinding3D
 {
+    [ExecuteInEditMode]
     public class NavGrid : MonoBehaviour
     {
-        [Header("Nav Grid Config")] [SerializeField]
-        private int NavUnitSize = 10;
+        #region InspectorFields
 
-        [SerializeField] private int NavGridSizeX = 10;
-        [SerializeField] private int NavGridSizeY = 10;
-        [SerializeField] private int NavGridSizeZ = 10;
+        [Header("Nav Grid Config")] [SerializeField]
+        private int _navUnitSize = 10;
+
+        [SerializeField] private int _navGridSizeX = 10;
+        [SerializeField] private int _navGridSizeY = 10;
+        [SerializeField] private int _navGridSizeZ = 10;
+
+        [SerializeField] private bool _allowGridRotation = false;
 
         [Header("Debug Options")] public bool ShowNavGrid = true;
         public bool ShowNavUnits = true;
+        public bool ShowNavigableUnits = true;
+        public bool ShowNonNavigableUnits = true;
+
+        #endregion
+
+        #region NonInspectorFields
+
+        private NavUnit[,,] _navUnits;
+
+        #endregion
+
+
+        #region Unity API
+
+        void Awake()
+        {
+            InitIfNeeded();
+        }
 
         // Start is called before the first frame update
         void Start()
         {
         }
 
+        // Update is called once per frame
+        void Update()
+        {
+            InitIfNeeded();
+            CheckGridRotation();
+            UpdateNavUnits();
+        }
+
         void OnDrawGizmos()
+        {
+            InitIfNeeded();
+            DrawNavGizmos();
+        }
+
+        #endregion
+
+
+        #region Implementation
+
+        void InitIfNeeded()
+        {
+            _navGridSizeX = Mathf.Abs(_navGridSizeX);
+            _navGridSizeY = Mathf.Abs(_navGridSizeY);
+            _navGridSizeZ = Mathf.Abs(_navGridSizeZ);
+
+            if (_navUnits == null
+                || _navUnits.GetLength(0) != _navGridSizeX
+                || _navUnits.GetLength(1) != _navGridSizeY
+                || _navUnits.GetLength(2) != _navGridSizeZ)
+            {
+                ResetNavUnits();
+            }
+        }
+
+        void CheckGridRotation()
+        {
+            if (!_allowGridRotation && transform.rotation.eulerAngles != Vector3.zero)
+            {
+                transform.rotation = Quaternion.Euler(Vector3.zero);
+            }
+        }
+
+        void ResetNavUnits()
+        {
+            _navUnits = new NavUnit[_navGridSizeX, _navGridSizeY, _navGridSizeZ];
+            for (int i = 0; i < _navUnits.GetLength(0); i++)
+            {
+                for (int j = 0; j < _navUnits.GetLength(1); j++)
+                {
+                    for (int k = 0; k < _navUnits.GetLength(2); k++)
+                    {
+                        _navUnits[i, j, k] = new NavUnit(i, j, k, this);
+                    }
+                }
+            }
+        }
+
+        void UpdateNavUnits()
+        {
+            for (int i = 0; i < _navUnits.GetLength(0); i++)
+            {
+                for (int j = 0; j < _navUnits.GetLength(1); j++)
+                {
+                    for (int k = 0; k < _navUnits.GetLength(2); k++)
+                    {
+                        _navUnits[i, j, k].Update();
+                    }
+                }
+            }
+        }
+
+        void DrawNavGizmos()
         {
             Matrix4x4 rotationMatrix = Matrix4x4.TRS(transform.position, transform.rotation, transform.lossyScale);
             Gizmos.matrix = rotationMatrix;
@@ -29,44 +123,52 @@ namespace Azee.NavGrid
                 Gizmos.color = Color.white;
 
                 Vector3 gridCenter = Vector3.zero;
-                gridCenter += Vector3.right * NavGridSizeX;
-                gridCenter += Vector3.forward * NavGridSizeZ;
-                gridCenter += Vector3.up * NavGridSizeY;
-                gridCenter *= NavUnitSize;
+                gridCenter += Vector3.right * _navGridSizeX;
+                gridCenter += Vector3.forward * _navGridSizeZ;
+                gridCenter += Vector3.up * _navGridSizeY;
+                gridCenter *= _navUnitSize;
                 gridCenter /= 2f;
 
                 Gizmos.DrawWireCube(gridCenter, gridCenter * 2f);
             }
 
-            if (ShowNavUnits)
+            if (ShowNavUnits && _navUnits != null)
             {
-                Gizmos.color = Color.green;
-
-                for (int i = 0; i < NavGridSizeX; i++)
+                for (int i = 0; i < _navUnits.GetLength(0); i++)
                 {
-                    for (int j = 0; j < NavGridSizeY; j++)
+                    for (int j = 0; j < _navUnits.GetLength(1); j++)
                     {
-                        for (int k = 0; k < NavGridSizeZ; k++)
+                        for (int k = 0; k < _navUnits.GetLength(2); k++)
                         {
-                            Vector3 unitLocalCenter = new Vector3(NavUnitSize, NavUnitSize, NavUnitSize) / 2f;
+                            NavUnit navUnit = _navUnits[i, j, k];
+                            Bounds relativeBounds = navUnit.GetRelativeBounds();
 
-                            Vector3 unitCenter = Vector3.zero;
-                            unitCenter += Vector3.right * i;
-                            unitCenter += Vector3.up * j;
-                            unitCenter += Vector3.forward * k;
-                            unitCenter *= NavUnitSize;
-                            unitCenter += unitLocalCenter;
-
-                            Gizmos.DrawWireCube(unitCenter, unitLocalCenter * 2f);
+                            if (navUnit.IsNavigable() && ShowNavigableUnits)
+                            {
+                                Gizmos.color = Color.green;
+                                Gizmos.DrawWireCube(relativeBounds.center, relativeBounds.size);
+                            }
+                            else if (!navUnit.IsNavigable() && ShowNonNavigableUnits)
+                            {
+                                Gizmos.color = Color.red;
+                                Gizmos.DrawWireCube(relativeBounds.center, relativeBounds.size);
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Update is called once per frame
-        void Update()
+        #endregion
+
+
+        #region Interface
+
+        public int GetNavUnitSize()
         {
+            return _navUnitSize;
         }
+
+        #endregion
     }
 }
