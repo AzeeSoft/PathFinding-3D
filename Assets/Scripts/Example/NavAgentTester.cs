@@ -6,6 +6,8 @@ namespace Azee.PathFinding3D.Example
 {
     public class NavAgentTester : MonoBehaviour
     {
+        #region Inspector Fields
+
         public NavGridAgent Agent;
         public Transform Target;
 
@@ -16,10 +18,17 @@ namespace Azee.PathFinding3D.Example
         [Button("Find New Path", "FindNewPath")]
         public bool BtnFindNewPath;
 
-        private List<Vector3> _lastFoundPath;
-        private Vector3 lastAgentLocation;
-        private Vector3 lastTargetLocation;
+        #endregion
 
+        #region Non Inspector Fields
+
+        private List<Vector3> _lastFoundPath;
+        private Vector3 _lastAgentLocation;
+        private Vector3 _lastTargetLocation;
+
+        #endregion
+
+        
         #region Unity API
 
         // Start is called before the first frame update
@@ -32,11 +41,11 @@ namespace Azee.PathFinding3D.Example
         {
             if (FindPathContinuously)
             {
-                if (Vector3.Distance(lastTargetLocation, Target.position) > 1f || Vector3.Distance(lastAgentLocation, Agent.transform.position) > 1f)
+                if (Vector3.Distance(_lastTargetLocation, Target.position) > 1f || Vector3.Distance(_lastAgentLocation, Agent.transform.position) > 1f)
                 {
                     FindNewPath();
-                    lastTargetLocation = Target.position;
-                    lastAgentLocation = Agent.transform.position;
+                    _lastTargetLocation = Target.position;
+                    _lastAgentLocation = Agent.transform.position;
                 }
             }
         }
@@ -57,6 +66,7 @@ namespace Azee.PathFinding3D.Example
 
         #endregion
 
+        
         #region Implementation
 
         void FindNewPath()
@@ -68,7 +78,5 @@ namespace Azee.PathFinding3D.Example
         }
 
         #endregion
-
-        
     }
 }

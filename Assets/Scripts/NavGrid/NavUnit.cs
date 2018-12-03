@@ -72,10 +72,10 @@ namespace Azee.PathFinding3D
                 {
                     for (int k = -1; k <= 1; k++)
                     {
-                        if (i != 1 || j != 1 || k != 1)
+                        if (i != 0 || j != 0 || k != 0)
                         {
                             NavUnit neighbor = Parent.GetNavUnit(Row + i, Col + j, Depth + k);
-                            if (neighbor.IsNavigable())
+                            if (neighbor != null && neighbor.IsNavigable())
                             {
                                 neighbors.Add(neighbor);
                             }

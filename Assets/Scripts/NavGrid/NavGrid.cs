@@ -11,7 +11,7 @@ namespace Azee.PathFinding3D
     [ExecuteInEditMode]
     public class NavGrid : MonoBehaviour
     {
-        #region InspectorFields
+        #region Inspector Fields
 
         [Header("Nav Grid Config")] [SerializeField]
         private int _navUnitSize = 10;
@@ -37,7 +37,7 @@ namespace Azee.PathFinding3D
 
         #endregion
 
-        #region NonInspectorFields
+        #region Non Inspector Fields
 
         public static NavGrid Instance { get; private set; }
         private NavUnit[,,] _navUnits = new NavUnit[10, 10, 10];
@@ -386,9 +386,9 @@ namespace Azee.PathFinding3D
 
         public NavUnit GetNavUnit(int row, int col, int depth)
         {
-            if (row < _navUnits.GetLength(0)
-                && col < _navUnits.GetLength(1)
-                && depth < _navUnits.GetLength(2))
+            if (row >= 0 && row < _navUnits.GetLength(0)
+                && col >= 0 && col < _navUnits.GetLength(1)
+                && depth >= 0 && depth < _navUnits.GetLength(2))
             {
                 return _navUnits[row, col, depth];
             }
