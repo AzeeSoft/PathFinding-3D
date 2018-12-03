@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using BasicTools.ButtonInspector;
+using Priority_Queue;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -308,8 +309,8 @@ namespace Azee.PathFinding3D
 
             Bounds endNavUnitBounds = endNavUnit.GetRelativeBounds();
 
-            List<NavUnit> openList = new List<NavUnit>();
-            List<NavUnit> closedList = new List<NavUnit>();
+            SimplePriorityQueue<NavUnit> openQueue = new SimplePriorityQueue<NavUnit>();
+            SimplePriorityQueue<NavUnit> closedQueue = new SimplePriorityQueue<NavUnit>();
 
             for (int i = 0; i < _navUnits.GetLength(0); i++)
             {
@@ -326,14 +327,11 @@ namespace Azee.PathFinding3D
                 }
             }
 
-            openList.Add(startNavUnit);
-
-            while (openList.Count > 0)
+            openQueue.Enqueue(startNavUnit, startNavUnit.AStarData.F);
+            
+            while (openQueue.Count > 0)
             {
-                openList.Sort();
-
-                NavUnit curNavUnit = openList[0];
-                openList.RemoveAt(0);
+                NavUnit curNavUnit = openQueue.Dequeue();
 
                 Bounds curNavUnitBounds = curNavUnit.GetRelativeBounds();
 
@@ -346,7 +344,7 @@ namespace Azee.PathFinding3D
 
                         return backTracePath(endNavUnit);
                     }
-                    else if (!closedList.Contains(neighbor))
+                    else if (!closedQueue.Contains(neighbor))
                     {
                         Bounds neighborBounds = neighbor.GetRelativeBounds();
 
@@ -361,12 +359,12 @@ namespace Azee.PathFinding3D
                             neighbor.AStarData.G = newG;
                             neighbor.AStarData.H = newH;
                             neighbor.AStarData.F = newF;
-                            openList.Add(neighbor);
+                            openQueue.Enqueue(neighbor, neighbor.AStarData.F);
                         }
                     }
                 }
 
-                closedList.Add(curNavUnit);
+                closedQueue.Enqueue(curNavUnit, curNavUnit.AStarData.F);
             }
 
             return path;
