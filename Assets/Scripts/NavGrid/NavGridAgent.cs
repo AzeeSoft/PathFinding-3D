@@ -7,51 +7,9 @@ namespace Azee.PathFinding3D
 {
     public class NavGridAgent : MonoBehaviour
     {
-        public Transform Target;
-
-        [Button("Find New Path", "FindNewPath")]
-        public bool BtnFindNewPath;
-
-        private List<Vector3> _lastFoundPath;
-
-        #region Unity API
-
-        // Start is called before the first frame update
-        void Start()
-        {
-        }
-
-        // Update is called once per frame
-        void Update()
-        {
-        }
-
-        private void OnDrawGizmos()
-        {
-            if (_lastFoundPath != null && _lastFoundPath.Count > 1)
-            {
-                Gizmos.color = Color.green;
-                for (int i = 1; i < _lastFoundPath.Count; i++)
-                {
-                    Gizmos.DrawLine(_lastFoundPath[i - 1], _lastFoundPath[i]);
-                }
-            }
-        }
-
-        #endregion
-
-        #region Implementation
-
-        void FindNewPath()
-        {
-            _lastFoundPath = FindPathToTarget(Target);
-        }
-
-        #endregion
-
         #region Interface
 
-        List<Vector3> FindPathToTarget(Transform target)
+        public List<Vector3> FindPathToTarget(Transform target)
         {
             List<Vector3> path = new List<Vector3>();
 
