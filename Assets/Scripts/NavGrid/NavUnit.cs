@@ -6,12 +6,21 @@ using UnityEngine;
 
 namespace Azee.PathFinding3D
 {
-    public class NavUnit
+    public class NavUnit : IComparable<NavUnit>
     {
+        public struct AStarDataModel
+        {
+            public float F, G, H;
+            public NavUnit Parent;
+        }
+
         #region Fields
 
         public readonly int Row, Col, Depth;
         public readonly NavGrid Parent;
+
+        public AStarDataModel AStarData = new AStarDataModel();
+        public Color HighlightColor = Color.black;
 
         public int Size => Parent.GetNavUnitSize();
 
@@ -49,6 +58,35 @@ namespace Azee.PathFinding3D
             return _navigable;
         }
 
+        public void SetNavigable(bool isNavigable)
+        {
+            _navigable = isNavigable;
+        }
+
+        public List<NavUnit> GetNeighbors()
+        {
+            List<NavUnit> neighbors = new List<NavUnit>();
+            for (int i = -1; i <= 1; i++)
+            {
+                for (int j = -1; j <= 1; j++)
+                {
+                    for (int k = -1; k <= 1; k++)
+                    {
+                        if (i != 1 || j != 1 || k != 1)
+                        {
+                            NavUnit neighbor = Parent.GetNavUnit(Row + i, Col + j, Depth + k);
+                            if (neighbor.IsNavigable())
+                            {
+                                neighbors.Add(neighbor);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return neighbors;
+        }
+
         #endregion
 
 
@@ -62,7 +100,15 @@ namespace Azee.PathFinding3D
             Collider[] hitColliders = Physics.OverlapBox(transformedCenter,
                 transformedExtents, Parent.transform.rotation);
 
-            _navigable = hitColliders.Length <= 0;
+            _navigable = true;
+            foreach (Collider col in hitColliders)
+            {
+                if (col.gameObject.GetComponent<NavGridObstacle>() != null)
+                {
+                    _navigable = false;
+                    break;
+                }
+            }
         }
 
         private void ValidateRelativeBounds()
@@ -91,6 +137,17 @@ namespace Azee.PathFinding3D
             };
         }
 
+        public int CompareTo(NavUnit other)
+        {
+            return AStarData.F.CompareTo(other.AStarData.F);
+        }
+
         #endregion
+    }
+
+    [Serializable]
+    public class NavUnitBakeDataModel
+    {
+        public int IsNavigable;
     }
 }
