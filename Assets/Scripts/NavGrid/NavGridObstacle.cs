@@ -7,7 +7,7 @@ namespace Azee.PathFinding3D
     {
         #region InspectorFields
 
-        public bool IsStatic;
+//        public bool IsStatic;
 
         #endregion
         
