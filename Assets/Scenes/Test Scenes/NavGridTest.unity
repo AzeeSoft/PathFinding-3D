@@ -1780,7 +1780,7 @@ MonoBehaviour:
   Agent: {fileID: 258633173}
   Target: {fileID: 1688464318}
   PathSegments: 1
-  FindPathContinuously: 0
+  FindPathContinuously: 1
   BtnFindNewPath: 0
 --- !u!4 &1376174748
 Transform:
@@ -1794,7 +1794,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 5
+  m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1381054867
 GameObject:
@@ -1944,7 +1944,7 @@ Transform:
   - {fileID: 691161395}
   - {fileID: 1381054868}
   m_Father: {fileID: 0}
-  m_RootOrder: 6
+  m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1507025514
 GameObject:
@@ -2334,7 +2334,7 @@ Transform:
   m_LocalScale: {x: 5, y: 5, z: 5}
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 4
+  m_RootOrder: 6
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1956090842
 GameObject:
