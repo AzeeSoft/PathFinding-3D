@@ -1779,6 +1779,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Agent: {fileID: 258633173}
   Target: {fileID: 1688464318}
+  PathSegments: 1
   FindPathContinuously: 0
   BtnFindNewPath: 0
 --- !u!4 &1376174748

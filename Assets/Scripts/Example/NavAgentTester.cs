@@ -9,6 +9,8 @@ namespace Azee.PathFinding3D.Example
         public NavGridAgent Agent;
         public Transform Target;
 
+        public float PathSegments = 1f;
+
         public bool FindPathContinuously;
 
         [Button("Find New Path", "FindNewPath")]
@@ -43,10 +45,12 @@ namespace Azee.PathFinding3D.Example
         {
             if (_lastFoundPath != null && _lastFoundPath.Count > 1)
             {
+                Vector3[] smoothPath = LineSmoother.SmoothLine(_lastFoundPath.ToArray(), PathSegments);
+                
                 Gizmos.color = Color.green;
-                for (int i = 1; i < _lastFoundPath.Count; i++)
+                for (int i = 1; i < smoothPath.Length; i++)
                 {
-                    Gizmos.DrawLine(_lastFoundPath[i - 1], _lastFoundPath[i]);
+                    Gizmos.DrawLine(smoothPath[i - 1], smoothPath[i]);
                 }
             }
         }
