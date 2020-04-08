@@ -222,22 +222,21 @@ namespace Azee.PathFinding3D
                         {
                             if (l < _navUnits.Length)
                             {
-                                NavUnit navUnit = _navUnits[l];
-                                Bounds relativeBounds = navUnit.GetRelativeBounds();
+                                Bounds relativeBounds = _navUnits[l].GetRelativeBounds();
 
-                                if (navUnit.IsNavigable() && ShowNavigableUnits)
+                                if (_navUnits[l].IsNavigable() && ShowNavigableUnits)
                                 {
                                     Gizmos.color = Color.green;
                                     Gizmos.DrawWireCube(relativeBounds.center, relativeBounds.size);
                                 }
-                                else if (!navUnit.IsNavigable() && ShowNonNavigableUnits)
+                                else if (!_navUnits[l].IsNavigable() && ShowNonNavigableUnits)
                                 {
                                     Gizmos.color = Color.red;
                                     Gizmos.DrawWireCube(relativeBounds.center, relativeBounds.size);
                                 }
-                                else if (navUnit.HighlightColor != Color.black)
+                                else if (_navUnits[l].HighlightColor != Color.black)
                                 {
-                                    Gizmos.color = navUnit.HighlightColor;
+                                    Gizmos.color = _navUnits[l].HighlightColor;
                                     Gizmos.DrawWireCube(relativeBounds.center, relativeBounds.size);
                                 }
                             }

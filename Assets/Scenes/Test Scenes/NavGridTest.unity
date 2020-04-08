@@ -492,9 +492,9 @@ GameObject:
   - component: {fileID: 258633176}
   - component: {fileID: 258633175}
   - component: {fileID: 258633174}
+  - component: {fileID: 258633179}
   - component: {fileID: 258633173}
   - component: {fileID: 258633178}
-  - component: {fileID: 258633179}
   m_Layer: 0
   m_Name: NavAgent
   m_TagString: Untagged
