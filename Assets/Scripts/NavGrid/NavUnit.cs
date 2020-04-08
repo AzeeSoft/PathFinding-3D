@@ -6,6 +6,10 @@ using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 
+#if UNITY_EDITOR
+using UnityEditor;
+
+#endif
 
 namespace Azee.PathFinding3D
 {
@@ -20,6 +24,7 @@ namespace Azee.PathFinding3D
         #region Fields
 
         public readonly int Row, Col, Depth;
+
         public readonly int Index;
         // public readonly NavGrid Parent;
 
@@ -132,6 +137,14 @@ namespace Azee.PathFinding3D
                     _navigable = false;
                     break;
                 }
+
+#if UNITY_EDITOR
+                if (GameObjectUtility.AreStaticEditorFlagsSet(col.gameObject, StaticEditorFlags.NavigationStatic))
+                {
+                    _navigable = false;
+                    break;
+                }
+#endif
             }
         }
 
