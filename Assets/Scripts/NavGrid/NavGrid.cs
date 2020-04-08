@@ -390,7 +390,8 @@ namespace Azee.PathFinding3D
                 // SimplePriorityQueue<int> openQueue = new SimplePriorityQueue<int>();
                 // HashSet<int> closedQueue = new HashSet<int>();
 
-                NativeList<int> openList = new NativeList<int>(Allocator.Temp);
+                NativeMinHeap<int> openList = new NativeMinHeap<int>(Allocator.Temp);
+                // NativeList<int> openList = new NativeList<int>(Allocator.Temp);
                 // NativeMinHeap<int> openList = new NativeMinHeap<int>(navUnits.Length, Allocator.Temp);
                 NativeArray<bool> closedList = new NativeArray<bool>(navUnits.Length, Allocator.Temp);
 
@@ -407,18 +408,19 @@ namespace Azee.PathFinding3D
                     }
                 }
 
-                openList.Add(startNavUnit);
-                // openList.Push(new MinHeapNode<int>(startNavUnit, navUnits[startNavUnit].AStarData.F));
+                // openList.Add(startNavUnit);
+                openList.Push(startNavUnit, navUnits[startNavUnit].AStarData.F);
 
-                while (openList.Length > 0)
+                while (openList.Size() > 0)
                 // while (openList.HasNext())
                 {
-                    int cheapestIndex = FindCheapestIndex(openList);
-                    int curNavUnit = openList[cheapestIndex];
-                    // int curNavUnit = openList.Pop();
+                    // int cheapestIndex = FindCheapestIndex(openList);
+                    // int curNavUnit = openList[cheapestIndex];
+                    // openList.RemoveAtSwapBack(cheapestIndex);
+
+                    int curNavUnit = openList.Pop();
                     int3 curNavPos = GetPosFromIndex(curNavUnit);
 
-                    openList.RemoveAtSwapBack(cheapestIndex);
 
                     Bounds curNavUnitBounds = navUnits[curNavUnit].GetRelativeBounds();
 
@@ -460,8 +462,8 @@ namespace Azee.PathFinding3D
                             {
                                 navUnits[neighbor] =
                                     navUnits[neighbor].UpdatePathFindingValues(newF, newG, newH, curNavUnit);
-                                openList.Add(neighbor);
-                                // openList.Push(new MinHeapNode<int>(neighbor, navUnits[neighbor].AStarData.F));
+                                // openList.Add(neighbor);
+                                openList.Push(neighbor, navUnits[neighbor].AStarData.F);
                             }
                         }
                     }

@@ -7,7 +7,7 @@ using static Unity.Collections.LowLevel.Unsafe.AtomicSafetyHandle;
 [NativeContainerSupportsDeallocateOnJobCompletion]
 [NativeContainerSupportsMinMaxWriteRestriction]
 [NativeContainer]
-public unsafe struct NativeMinHeap<T> : IDisposable
+public unsafe struct NativePriorityQueue<T> : IDisposable
 {
     [NativeDisableUnsafePtrRestriction] private void* m_Buffer;
     private int m_capacity;
@@ -22,7 +22,7 @@ public unsafe struct NativeMinHeap<T> : IDisposable
     private int m_MinIndex;
     private int m_MaxIndex;
 
-    public NativeMinHeap(int capacity,
+    public NativePriorityQueue(int capacity,
         Allocator allocator /*, NativeArrayOptions options = NativeArrayOptions.ClearMemory*/)
     {
         Allocate(capacity, allocator, out this);
@@ -31,7 +31,7 @@ public unsafe struct NativeMinHeap<T> : IDisposable
         UnsafeUtility.MemClear(m_Buffer, (long) m_capacity * UnsafeUtility.SizeOf<MinHeapNode>());*/
     }
 
-    private static void Allocate(int capacity, Allocator allocator, out NativeMinHeap<T> nativeMinHeap)
+    private static void Allocate(int capacity, Allocator allocator, out NativePriorityQueue<T> nativePriorityQueue)
     {
         var size = (long) UnsafeUtility.SizeOf<MinHeapNode<T>>() * capacity;
         if (allocator <= Allocator.None)
@@ -42,16 +42,16 @@ public unsafe struct NativeMinHeap<T> : IDisposable
             throw new ArgumentOutOfRangeException(nameof(capacity),
                 $"Length * sizeof(T) cannot exceed {(object) int.MaxValue} bytes");
 
-        nativeMinHeap.m_Buffer = UnsafeUtility.Malloc(size, UnsafeUtility.AlignOf<MinHeapNode<T>>(), allocator);
-        nativeMinHeap.m_capacity = capacity;
-        nativeMinHeap.m_AllocatorLabel = allocator;
-        nativeMinHeap.m_MinIndex = 0;
-        nativeMinHeap.m_MaxIndex = capacity - 1;
-        nativeMinHeap.m_head = -1;
-        nativeMinHeap.m_length = 0;
+        nativePriorityQueue.m_Buffer = UnsafeUtility.Malloc(size, UnsafeUtility.AlignOf<MinHeapNode<T>>(), allocator);
+        nativePriorityQueue.m_capacity = capacity;
+        nativePriorityQueue.m_AllocatorLabel = allocator;
+        nativePriorityQueue.m_MinIndex = 0;
+        nativePriorityQueue.m_MaxIndex = capacity - 1;
+        nativePriorityQueue.m_head = -1;
+        nativePriorityQueue.m_length = 0;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        DisposeSentinel.Create(out nativeMinHeap.m_Safety, out nativeMinHeap.m_DisposeSentinel, 1, allocator);
+        DisposeSentinel.Create(out nativePriorityQueue.m_Safety, out nativePriorityQueue.m_DisposeSentinel, 1, allocator);
 #endif
     }
 
