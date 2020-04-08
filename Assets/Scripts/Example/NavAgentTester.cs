@@ -9,6 +9,7 @@ namespace Azee.PathFinding3D.Example
         #region Inspector Fields
 
         public NavGridAgent Agent;
+        public LineRenderer LineRenderer;
         public Transform Target;
 
         public float PathSegments = 1f;
@@ -52,7 +53,7 @@ namespace Azee.PathFinding3D.Example
 
         private void OnDrawGizmos()
         {
-            if (_lastFoundPath != null && _lastFoundPath.Count > 1)
+            /*if (_lastFoundPath != null && _lastFoundPath.Count > 1)
             {
                 Vector3[] smoothPath = LineSmoother.SmoothLine(_lastFoundPath.ToArray(), PathSegments);
                 
@@ -61,7 +62,7 @@ namespace Azee.PathFinding3D.Example
                 {
                     Gizmos.DrawLine(smoothPath[i - 1], smoothPath[i]);
                 }
-            }
+            }*/
         }
 
         #endregion
@@ -75,9 +76,16 @@ namespace Azee.PathFinding3D.Example
             {
                 float startTime = Time.realtimeSinceStartup;
                 _lastFoundPath = Agent.FindPathToTarget(Target);
-
                 print("Time: " + (Time.realtimeSinceStartup - startTime) * 1000f);
+
+                UpdateLineRenderer(_lastFoundPath);
             }
+        }
+
+        void UpdateLineRenderer(List<Vector3> positions)
+        {
+            LineRenderer.positionCount = positions.Count;
+            LineRenderer.SetPositions(positions.ToArray());
         }
 
         #endregion
