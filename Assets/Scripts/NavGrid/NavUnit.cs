@@ -2,30 +2,36 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
+
 
 namespace Azee.PathFinding3D
 {
-    public class NavUnit : IComparable<NavUnit>
+    public struct NavUnit
     {
         public struct AStarDataModel
         {
             public float F, G, H;
-            public NavUnit Parent;
+            public int ParentIndex;
         }
 
         #region Fields
 
         public readonly int Row, Col, Depth;
-        public readonly NavGrid Parent;
+        public readonly int Index;
+        // public readonly NavGrid Parent;
 
-        public AStarDataModel AStarData = new AStarDataModel();
-        public Color HighlightColor = Color.black;
+        public AStarDataModel AStarData;
+        public Color HighlightColor;
 
-        public int Size => Parent.GetNavUnitSize();
+        // public int Size => Parent.GetNavUnitSize();
 
         private Bounds _relativeBounds;
-        private bool _navigable = true;
+        private bool _navigable;
+
+        // private List<int> _neighbors;
 
         #endregion
 
@@ -37,15 +43,35 @@ namespace Azee.PathFinding3D
             Row = row;
             Col = col;
             Depth = depth;
-            Parent = parent;
+            // Parent = parent;
 
-            ComputeRelativeBounds();
+            Index = parent.GetIndexFromPos(Row, Col, Depth);
+
+            AStarData = new AStarDataModel();
+
+            HighlightColor = Color.black;
+
+            _navigable = true;
+            // _neighbors = new List<int>();
+
+            _relativeBounds = new Bounds();
+            ComputeRelativeBounds(parent);
+
+            ResetPathFindingData();
         }
 
-        public void Update()
+        public NavUnit Update(NavGrid parent)
         {
-            ValidateRelativeBounds();
-            CheckForColliders();
+            ValidateRelativeBounds(parent);
+            CheckForColliders(parent);
+
+            return this;
+        }
+
+        public NavUnit UpdateFromBakedData(NavGrid parent, NavUnitBakeDataModel navUnitBakeData)
+        {
+            _navigable = navUnitBakeData.IsNavigable != 0;
+            return this;
         }
 
         public Bounds GetRelativeBounds()
@@ -58,33 +84,31 @@ namespace Azee.PathFinding3D
             return _navigable;
         }
 
-        public void SetNavigable(bool isNavigable)
+        public NavUnit ResetPathFindingData()
         {
-            _navigable = isNavigable;
+            AStarData.G = 0;
+            AStarData.H = float.MaxValue;
+            AStarData.F = float.MaxValue;
+            AStarData.ParentIndex = -1;
+
+            return this;
         }
 
-        public List<NavUnit> GetNeighbors()
+        public NavUnit UpdatePathFindingValues(float f, float g, float h, int parentIndex)
         {
-            List<NavUnit> neighbors = new List<NavUnit>();
-            for (int i = -1; i <= 1; i++)
-            {
-                for (int j = -1; j <= 1; j++)
-                {
-                    for (int k = -1; k <= 1; k++)
-                    {
-                        if (i != 0 || j != 0 || k != 0)
-                        {
-                            NavUnit neighbor = Parent.GetNavUnit(Row + i, Col + j, Depth + k);
-                            if (neighbor != null && neighbor.IsNavigable())
-                            {
-                                neighbors.Add(neighbor);
-                            }
-                        }
-                    }
-                }
-            }
+            AStarData.F = f;
+            AStarData.G = g;
+            AStarData.H = h;
+            AStarData.ParentIndex = parentIndex;
 
-            return neighbors;
+            return this;
+        }
+
+        public NavUnit SetPathFindingParentIndex(int index)
+        {
+            AStarData.ParentIndex = index;
+
+            return this;
         }
 
         #endregion
@@ -92,13 +116,13 @@ namespace Azee.PathFinding3D
 
         #region Implementation
 
-        private void CheckForColliders()
+        private void CheckForColliders(NavGrid parent)
         {
-            Vector3 transformedCenter = Parent.transform.TransformPoint(_relativeBounds.center);
-            Vector3 transformedExtents = Parent.transform.TransformVector(_relativeBounds.extents);
+            Vector3 transformedCenter = parent.transform.TransformPoint(_relativeBounds.center);
+            Vector3 transformedExtents = parent.transform.TransformVector(_relativeBounds.extents);
 
             Collider[] hitColliders = Physics.OverlapBox(transformedCenter,
-                transformedExtents, Parent.transform.rotation);
+                transformedExtents, parent.transform.rotation);
 
             _navigable = true;
             foreach (Collider col in hitColliders)
@@ -111,23 +135,24 @@ namespace Azee.PathFinding3D
             }
         }
 
-        private void ValidateRelativeBounds()
+        private void ValidateRelativeBounds(NavGrid parent)
         {
-            if (Math.Abs(_relativeBounds.size.magnitude - Size) > 0.001) // If size has changed
+            if (Math.Abs(_relativeBounds.size.magnitude - parent.GetNavUnitSize()) > 0.001) // If size has changed
             {
-                ComputeRelativeBounds();
+                ComputeRelativeBounds(parent);
             }
         }
 
-        private void ComputeRelativeBounds()
+        private void ComputeRelativeBounds(NavGrid parent)
         {
-            Vector3 unitLocalCenter = new Vector3(Size, Size, Size) / 2f;
+            float navUnitSize = parent.GetNavUnitSize();
+            Vector3 unitLocalCenter = new Vector3(navUnitSize, navUnitSize, navUnitSize) / 2f;
 
             Vector3 unitCenter = Vector3.zero;
             unitCenter += Vector3.right * Row;
             unitCenter += Vector3.up * Col;
             unitCenter += Vector3.forward * Depth;
-            unitCenter *= Size;
+            unitCenter *= navUnitSize;
             unitCenter += unitLocalCenter;
 
             _relativeBounds = new Bounds
@@ -135,11 +160,6 @@ namespace Azee.PathFinding3D
                 center = unitCenter,
                 extents = unitLocalCenter
             };
-        }
-
-        public int CompareTo(NavUnit other)
-        {
-            return AStarData.F.CompareTo(other.AStarData.F);
         }
 
         #endregion

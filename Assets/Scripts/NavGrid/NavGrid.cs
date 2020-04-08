@@ -1,8 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using BasicTools.ButtonInspector;
+using JetBrains.Annotations;
 using Priority_Queue;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -17,9 +23,9 @@ namespace Azee.PathFinding3D
         [Header("Nav Grid Config")] [SerializeField]
         private int _navUnitSize = 10;
 
-        [SerializeField] private int _navGridSizeX = 10;
-        [SerializeField] private int _navGridSizeY = 10;
-        [SerializeField] private int _navGridSizeZ = 10;
+        [SerializeField] public int navGridSizeX = 10;
+        [SerializeField] public int navGridSizeY = 10;
+        [SerializeField] public int navGridSizeZ = 10;
 
         [SerializeField] private bool _allowGridRotation = false;
 
@@ -41,7 +47,9 @@ namespace Azee.PathFinding3D
         #region Non Inspector Fields
 
         public static NavGrid Instance { get; private set; }
-        private NavUnit[,,] _navUnits = new NavUnit[10, 10, 10];
+        private NativeArray<NavUnit> _navUnits;
+
+        private NativeArray<int3> _neighborOffsets;
 
         #endregion
 
@@ -51,7 +59,10 @@ namespace Azee.PathFinding3D
         private void Awake()
         {
             Instance = this;
-            ValidateGridSize();
+            _navUnits = new NativeArray<NavUnit>(1000, Allocator.Persistent);
+
+            ValidateGrid();
+            ComputeNeighborOffsets();
         }
 
         // Start is called before the first frame update
@@ -63,14 +74,20 @@ namespace Azee.PathFinding3D
         // Update is called once per frame
         private void Update()
         {
-            ValidateGridSize();
+            ValidateGrid();
             CheckGridRotation();
         }
 
         private void OnDrawGizmosSelected()
         {
-            ValidateGridSize();
+            ValidateGrid();
             DrawNavGizmos();
+        }
+
+        private void OnDestroy()
+        {
+            _navUnits.Dispose();
+            _neighborOffsets.Dispose();
         }
 
         #endregion
@@ -78,11 +95,11 @@ namespace Azee.PathFinding3D
 
         #region Implementation
 
-        void ValidateGridSize()
+        void ValidateGrid()
         {
-            _navGridSizeX = Mathf.Abs(_navGridSizeX);
-            _navGridSizeY = Mathf.Abs(_navGridSizeY);
-            _navGridSizeZ = Mathf.Abs(_navGridSizeZ);
+            navGridSizeX = Mathf.Abs(navGridSizeX);
+            navGridSizeY = Mathf.Abs(navGridSizeY);
+            navGridSizeZ = Mathf.Abs(navGridSizeZ);
         }
 
         void CheckGridRotation()
@@ -90,6 +107,27 @@ namespace Azee.PathFinding3D
             if (!_allowGridRotation && transform.rotation.eulerAngles != Vector3.zero)
             {
                 transform.rotation = Quaternion.Euler(Vector3.zero);
+            }
+        }
+
+        void ComputeNeighborOffsets()
+        {
+            _neighborOffsets = new NativeArray<int3>(26, Allocator.Persistent);
+
+            int l = 0;
+            for (int j = -1; j <= 1; j++)
+            {
+                for (int k = -1; k <= 1; k++)
+                {
+                    for (int i = -1; i <= 1; i++)
+                    {
+                        if (i != 0 || j != 0 || k != 0)
+                        {
+                            _neighborOffsets[l] = new int3(i, j, k);
+                            l++;
+                        }
+                    }
+                }
             }
         }
 
@@ -101,21 +139,20 @@ namespace Azee.PathFinding3D
 
                 NavGridBakeDataModel navGridBakeData = JsonUtility.FromJson<NavGridBakeDataModel>(bakedDataJson);
                 _navUnitSize = navGridBakeData.NavUnitSize;
-                _navGridSizeX = navGridBakeData.NavGridSizeX;
-                _navGridSizeY = navGridBakeData.NavGridSizeY;
-                _navGridSizeZ = navGridBakeData.NavGridSizeZ;
+                navGridSizeX = navGridBakeData.NavGridSizeX;
+                navGridSizeY = navGridBakeData.NavGridSizeY;
+                navGridSizeZ = navGridBakeData.NavGridSizeZ;
 
                 ResetNavUnits();
 
                 int l = 0;
-                for (int i = 0; i < _navUnits.GetLength(0); i++)
+                for (int j = 0; j < navGridSizeY; j++)
                 {
-                    for (int j = 0; j < _navUnits.GetLength(1); j++)
+                    for (int k = 0; k < navGridSizeZ; k++)
                     {
-                        for (int k = 0; k < _navUnits.GetLength(2); k++)
+                        for (int i = 0; i < navGridSizeX; i++)
                         {
-                            _navUnits[i, j, k]
-                                .SetNavigable(navGridBakeData.NavUnits[l].IsNavigable != 0 ? true : false);
+                            _navUnits[l] = _navUnits[l].UpdateFromBakedData(this, navGridBakeData.NavUnits[l]);
                             l++;
                         }
                     }
@@ -125,14 +162,22 @@ namespace Azee.PathFinding3D
 
         void ResetNavUnits()
         {
-            _navUnits = new NavUnit[_navGridSizeX, _navGridSizeY, _navGridSizeZ];
-            for (int i = 0; i < _navUnits.GetLength(0); i++)
+            if (_navUnits.Length > 0)
             {
-                for (int j = 0; j < _navUnits.GetLength(1); j++)
+                _navUnits.Dispose();
+            }
+
+            _navUnits = new NativeArray<NavUnit>(navGridSizeX * navGridSizeY * navGridSizeZ, Allocator.Persistent);
+
+            int l = 0;
+            for (int j = 0; j < navGridSizeY; j++)
+            {
+                for (int k = 0; k < navGridSizeZ; k++)
                 {
-                    for (int k = 0; k < _navUnits.GetLength(2); k++)
+                    for (int i = 0; i < navGridSizeX; i++)
                     {
-                        _navUnits[i, j, k] = new NavUnit(i, j, k, this);
+                        _navUnits[l] = new NavUnit(i, j, k, this);
+                        l++;
                     }
                 }
             }
@@ -148,51 +193,60 @@ namespace Azee.PathFinding3D
                 Gizmos.color = Color.white;
 
                 Vector3 gridCenter = Vector3.zero;
-                gridCenter += Vector3.right * _navUnits.GetLength(0);
-                gridCenter += Vector3.forward * _navUnits.GetLength(1);
-                gridCenter += Vector3.up * _navUnits.GetLength(2);
+                gridCenter += Vector3.right * navGridSizeX;
+                gridCenter += Vector3.up * navGridSizeY;
+                gridCenter += Vector3.forward * navGridSizeZ;
                 gridCenter *= _navUnitSize;
                 gridCenter /= 2f;
 
                 Gizmos.DrawWireCube(gridCenter, gridCenter * 2f);
             }
 
-            if (ShowNavUnits && _navUnits != null)
+            if (ShowNavUnits)
             {
-                for (int i = 0; i < _navUnits.GetLength(0); i++)
-                {
-                    for (int j = 0; j < _navUnits.GetLength(1); j++)
-                    {
-                        for (int k = 0; k < _navUnits.GetLength(2); k++)
-                        {
-                            NavUnit navUnit = _navUnits[i, j, k];
-                            Bounds relativeBounds = navUnit.GetRelativeBounds();
+                // print(_navUnits.Length);
 
-                            if (navUnit.IsNavigable() && ShowNavigableUnits)
+                int l = 0;
+                for (int j = 0; j < navGridSizeY; j++)
+                {
+                    for (int k = 0; k < navGridSizeZ; k++)
+                    {
+                        for (int i = 0; i < navGridSizeX; i++)
+                        {
+                            if (l < _navUnits.Length)
                             {
-                                Gizmos.color = Color.green;
-                                Gizmos.DrawWireCube(relativeBounds.center, relativeBounds.size);
+                                NavUnit navUnit = _navUnits[l];
+                                Bounds relativeBounds = navUnit.GetRelativeBounds();
+
+                                if (navUnit.IsNavigable() && ShowNavigableUnits)
+                                {
+                                    Gizmos.color = Color.green;
+                                    Gizmos.DrawWireCube(relativeBounds.center, relativeBounds.size);
+                                }
+                                else if (!navUnit.IsNavigable() && ShowNonNavigableUnits)
+                                {
+                                    Gizmos.color = Color.red;
+                                    Gizmos.DrawWireCube(relativeBounds.center, relativeBounds.size);
+                                }
+                                else if (navUnit.HighlightColor != Color.black)
+                                {
+                                    Gizmos.color = navUnit.HighlightColor;
+                                    Gizmos.DrawWireCube(relativeBounds.center, relativeBounds.size);
+                                }
                             }
-                            else if (!navUnit.IsNavigable() && ShowNonNavigableUnits)
-                            {
-                                Gizmos.color = Color.red;
-                                Gizmos.DrawWireCube(relativeBounds.center, relativeBounds.size);
-                            }
-                            else if (navUnit.HighlightColor != Color.black)
-                            {
-                                Gizmos.color = navUnit.HighlightColor;
-                                Gizmos.DrawWireCube(relativeBounds.center, relativeBounds.size);
-                            }
+
+                            l++;
                         }
                     }
                 }
             }
         }
 
-        
+
         #region Editor Helper Functions
 
 #if UNITY_EDITOR
+        [UsedImplicitly]
         void RemoveBakedData()
         {
             ResetNavUnits();
@@ -206,42 +260,46 @@ namespace Azee.PathFinding3D
             SceneView.RepaintAll();
         }
 
+        [UsedImplicitly]
         void BakeNavGrid()
         {
             ResetNavUnits();
 
-            for (int i = 0; i < _navUnits.GetLength(0); i++)
+            int l = 0;
+            for (int j = 0; j < navGridSizeY; j++)
             {
-                for (int j = 0; j < _navUnits.GetLength(1); j++)
+                for (int k = 0; k < navGridSizeZ; k++)
                 {
-                    for (int k = 0; k < _navUnits.GetLength(2); k++)
+                    for (int i = 0; i < navGridSizeX; i++)
                     {
-                        _navUnits[i, j, k].Update();
+                        _navUnits[l] = _navUnits[l].Update(this);
+                        l++;
                     }
                 }
             }
 
             SceneView.RepaintAll();
 
-            NavGridBakeDataModel navGridBakeData = new NavGridBakeDataModel();
-            navGridBakeData.NavUnitSize = _navUnitSize;
-            navGridBakeData.NavGridSizeX = _navGridSizeX;
-            navGridBakeData.NavGridSizeY = _navGridSizeY;
-            navGridBakeData.NavGridSizeZ = _navGridSizeZ;
-
-            navGridBakeData.NavUnits =
-                new NavUnitBakeDataModel[_navUnits.GetLength(0) * _navUnits.GetLength(1) * _navUnits.GetLength(2)];
-
-            int l = 0;
-            for (int i = 0; i < _navUnits.GetLength(0); i++)
+            NavGridBakeDataModel navGridBakeData = new NavGridBakeDataModel
             {
-                for (int j = 0; j < _navUnits.GetLength(1); j++)
+                NavUnitSize = _navUnitSize,
+                NavGridSizeX = navGridSizeX,
+                NavGridSizeY = navGridSizeY,
+                NavGridSizeZ = navGridSizeZ,
+                NavUnits = new NavUnitBakeDataModel[navGridSizeX * navGridSizeY * navGridSizeZ]
+            };
+
+
+            l = 0;
+            for (int j = 0; j < navGridSizeY; j++)
+            {
+                for (int k = 0; k < navGridSizeZ; k++)
                 {
-                    for (int k = 0; k < _navUnits.GetLength(2); k++)
+                    for (int i = 0; i < navGridSizeX; i++)
                     {
                         navGridBakeData.NavUnits[l] = new NavUnitBakeDataModel
                         {
-                            IsNavigable = _navUnits[i, j, k].IsNavigable() ? 1 : 0
+                            IsNavigable = _navUnits[l].IsNavigable() ? 1 : 0
                         };
                         l++;
                     }
@@ -249,14 +307,15 @@ namespace Azee.PathFinding3D
             }
 
             string bakeDataDir = SceneManager.GetActiveScene().path;
-            bakeDataDir = bakeDataDir.Substring(0, bakeDataDir.Length - Path.GetFileName(bakeDataDir).Length) + "NavGridData/";
-            
+            bakeDataDir = bakeDataDir.Substring(0, bakeDataDir.Length - Path.GetFileName(bakeDataDir).Length) +
+                          "NavGridData/";
+
             Directory.CreateDirectory(bakeDataDir);
 
             _bakeDataFileName = bakeDataDir + "navGridBakedData";
-            
+
             File.WriteAllText(_bakeDataFileName, JsonUtility.ToJson(navGridBakeData));
-            
+
             AssetDatabase.Refresh();
         }
 #endif
@@ -266,108 +325,185 @@ namespace Azee.PathFinding3D
 
         #region AStar
 
-        private List<NavUnit> backTracePath(NavUnit endNavUnit)
+        [BurstCompile]
+        struct FindPathJob : IJob
         {
-            Stack<NavUnit> pathStack = new Stack<NavUnit>();
+            public int start, end;
 
-            NavUnit cur = endNavUnit;
-            while (cur != null)
+            public int navGridSizeX, navGridSizeY, navGridSizeZ;
+
+            public NativeArray<NavUnit> navUnits;
+            public NativeArray<int3> neighborOffsets;
+
+            public NativeList<int> path;
+
+            public void Execute()
             {
-                pathStack.Push(cur);
-                if (cur.AStarData.Parent != cur)
-                {
-                    cur = cur.AStarData.Parent;
-                }
-                else
-                {
-                    cur = null;
-                }
+                FindPathUsingAStar(start, end, path);
             }
 
-            List<NavUnit> path = new List<NavUnit>();
-            while (pathStack.Count > 0)
+            private void BackTracePath(int endNavUnit, NativeList<int> path)
             {
-                path.Add(pathStack.Pop());
-            }
+                path.Clear();
 
-            return path;
-        }
-
-        private List<NavUnit> FindPathUsingAStar(Vector3 from, Vector3 to)
-        {
-            List<NavUnit> path = new List<NavUnit>();
-
-            NavUnit startNavUnit = GetNavUnit(from);
-            NavUnit endNavUnit = GetNavUnit(to);
-
-            if (startNavUnit == null || endNavUnit == null
-                                     || !startNavUnit.IsNavigable() || !endNavUnit.IsNavigable()
-                                     || startNavUnit == endNavUnit)
-            {
-                return path;
-            }
-
-            Bounds endNavUnitBounds = endNavUnit.GetRelativeBounds();
-
-            SimplePriorityQueue<NavUnit> openQueue = new SimplePriorityQueue<NavUnit>();
-            SimplePriorityQueue<NavUnit> closedQueue = new SimplePriorityQueue<NavUnit>();
-
-            for (int i = 0; i < _navUnits.GetLength(0); i++)
-            {
-                for (int j = 0; j < _navUnits.GetLength(1); j++)
+                int cur = endNavUnit;
+                while (cur >= 0)
                 {
-                    for (int k = 0; k < _navUnits.GetLength(2); k++)
+                    path.Add(cur);
+                    if (navUnits[cur].AStarData.ParentIndex != -1 &&
+                        navUnits[cur].AStarData.ParentIndex != navUnits[cur].Index)
                     {
-                        NavUnit navUnit = _navUnits[i, j, k];
-                        navUnit.AStarData.G = 0;
-                        navUnit.AStarData.H = float.MaxValue;
-                        navUnit.AStarData.F = float.MaxValue;
-                        navUnit.AStarData.Parent = null;
+                        cur = navUnits[cur].AStarData.ParentIndex;
+                    }
+                    else
+                    {
+                        cur = -1;
                     }
                 }
+
+                for (int i = 0; i < path.Length / 2; i++)
+                {
+                    int temp = path[i];
+                    path[i] = path[path.Length - 1 - i];
+                    path[path.Length - 1 - i] = temp;
+                }
             }
 
-            openQueue.Enqueue(startNavUnit, startNavUnit.AStarData.F);
-            
-            while (openQueue.Count > 0)
+            private void FindPathUsingAStar(int startNavUnit, int endNavUnit, NativeList<int> path)
             {
-                NavUnit curNavUnit = openQueue.Dequeue();
-
-                Bounds curNavUnitBounds = curNavUnit.GetRelativeBounds();
-
-                List<NavUnit> neighbors = curNavUnit.GetNeighbors();
-                foreach (NavUnit neighbor in neighbors)
+                if (startNavUnit < 0 || endNavUnit < 0 ||
+                    !navUnits[startNavUnit].IsNavigable() || !navUnits[endNavUnit].IsNavigable() ||
+                    startNavUnit == endNavUnit)
                 {
-                    if (neighbor == endNavUnit)
+                    return;
+                }
+
+                Bounds endNavUnitBounds = navUnits[endNavUnit].GetRelativeBounds();
+
+                // SimplePriorityQueue<int> openQueue = new SimplePriorityQueue<int>();
+                // HashSet<int> closedQueue = new HashSet<int>();
+
+                NativeList<int> openList = new NativeList<int>(Allocator.Temp);
+                NativeList<int> closedList = new NativeList<int>(Allocator.Temp);
+
+                int l = 0;
+                for (int j = 0; j < navGridSizeY; j++)
+                {
+                    for (int k = 0; k < navGridSizeZ; k++)
                     {
-                        neighbor.AStarData.Parent = curNavUnit;
-
-                        return backTracePath(endNavUnit);
-                    }
-                    else if (!closedQueue.Contains(neighbor))
-                    {
-                        Bounds neighborBounds = neighbor.GetRelativeBounds();
-
-                        float newG = curNavUnit.AStarData.G +
-                                     Vector3.Distance(curNavUnitBounds.center, neighborBounds.center);
-                        float newH = Vector3.Distance(neighborBounds.center, endNavUnitBounds.center);
-                        float newF = newG + newH;
-
-                        if (newF < neighbor.AStarData.F)
+                        for (int i = 0; i < navGridSizeX; i++)
                         {
-                            neighbor.AStarData.Parent = curNavUnit;
-                            neighbor.AStarData.G = newG;
-                            neighbor.AStarData.H = newH;
-                            neighbor.AStarData.F = newF;
-                            openQueue.Enqueue(neighbor, neighbor.AStarData.F);
+                            navUnits[l] = navUnits[l].ResetPathFindingData();
+                            l++;
                         }
                     }
                 }
 
-                closedQueue.Enqueue(curNavUnit, curNavUnit.AStarData.F);
+                openList.Add(startNavUnit);
+
+                while (openList.Length > 0)
+                {
+                    int cheapestIndex = FindCheapestIndex(openList);
+                    int curNavUnit = openList[cheapestIndex];
+                    int3 curNavPos = GetPosFromIndex(curNavUnit);
+
+                    openList.RemoveAtSwapBack(cheapestIndex);
+
+                    Bounds curNavUnitBounds = navUnits[curNavUnit].GetRelativeBounds();
+
+                    // print("AStar Loop");
+
+                    for (int i = 0; i < neighborOffsets.Length; i++)
+                    {
+                        int3 neighborOffset = neighborOffsets[i];
+
+                        int neighbor = GetIndexFromPos(curNavPos.x + neighborOffset.x, curNavPos.y + neighborOffset.y,
+                            curNavPos.z + neighborOffset.z);
+
+                        if (neighbor < 0 || !navUnits[neighbor].IsNavigable())
+                        {
+                            // print("Exiting: " + neighbor);
+                            continue;
+                        }
+
+                        if (neighbor == endNavUnit)
+                        {
+                            navUnits[neighbor] = navUnits[neighbor].SetPathFindingParentIndex(curNavUnit);
+
+                            BackTracePath(endNavUnit, path);
+                            return;
+                        }
+
+                        if (!closedList.Contains(neighbor))
+                        {
+                            // print("Adding to closed queue");
+
+                            Bounds neighborBounds = navUnits[neighbor].GetRelativeBounds();
+
+                            float newG = navUnits[curNavUnit].AStarData.G +
+                                         Vector3.Distance(curNavUnitBounds.center, neighborBounds.center);
+                            float newH = Vector3.Distance(neighborBounds.center, endNavUnitBounds.center);
+                            float newF = newG + newH;
+
+                            if (newF < navUnits[neighbor].AStarData.F)
+                            {
+                                navUnits[neighbor] =
+                                    navUnits[neighbor].UpdatePathFindingValues(newF, newG, newH, curNavUnit);
+                                openList.Add(neighbor);
+                            }
+                        }
+                    }
+
+                    closedList.Add(curNavUnit);
+                }
             }
 
-            return path;
+            private int FindCheapestIndex(NativeList<int> openList)
+            {
+                int lowestIndex = 0;
+                for (int i = 1; i < openList.Length; i++)
+                {
+                    if (navUnits[openList[i]].AStarData.F < navUnits[openList[lowestIndex]].AStarData.F)
+                    {
+                        lowestIndex = i;
+                    }
+                }
+                return lowestIndex;
+            }
+
+            private int GetIndexFromPos(int3 pos)
+            {
+                return GetIndexFromPos(pos.x, pos.y, pos.z);
+            }
+
+            private int GetIndexFromPos(int i, int j, int k)
+            {
+                if (i < 0 || j < 0 || k < 0)
+                {
+                    return -1;
+                }
+
+                if (i >= navGridSizeX || j >= navGridSizeY || k >= navGridSizeZ)
+                {
+                    return -1;
+                }
+
+                return (navGridSizeX * navGridSizeZ * j) + (navGridSizeX * k) + i;
+            }
+
+            private int3 GetPosFromIndex(int index)
+            {
+                int3 pos;
+                pos.y = index / (navGridSizeX * navGridSizeZ);
+
+                index = index % (navGridSizeX * navGridSizeZ);
+                pos.z = index / navGridSizeX;
+
+                index = index % navGridSizeX;
+                pos.x = index;
+
+                return pos;
+            }
         }
 
         #endregion
@@ -382,35 +518,84 @@ namespace Azee.PathFinding3D
             return _navUnitSize;
         }
 
-        public NavUnit GetNavUnit(int row, int col, int depth)
+        public int3 GetNavUnitPos(Vector3 worldPos)
         {
-            if (row >= 0 && row < _navUnits.GetLength(0)
-                && col >= 0 && col < _navUnits.GetLength(1)
-                && depth >= 0 && depth < _navUnits.GetLength(2))
-            {
-                return _navUnits[row, col, depth];
-            }
-
-            return null;
-        }
-
-        public NavUnit GetNavUnit(Vector3 pos)
-        {
-            Vector3 offset = transform.InverseTransformPoint(pos);
+            Vector3 offset = transform.InverseTransformPoint(worldPos);
             offset.x /= _navUnitSize;
             offset.y /= _navUnitSize;
             offset.z /= _navUnitSize;
 
-            int row = (int) offset.x;
-            int col = (int) offset.y;
-            int depth = (int) offset.z;
+            int3 pos;
+            pos.x = (int) offset.x;
+            pos.y = (int) offset.y;
+            pos.z = (int) offset.z;
 
-            return GetNavUnit(row, col, depth);
+            return pos;
         }
 
-        public List<NavUnit> GetShortestPath(Vector3 from, Vector3 to)
+        public List<Vector3> GetShortestPath(Vector3 from, Vector3 to)
         {
-            return FindPathUsingAStar(from, to);
+            int startNavUnit = GetIndexFromPos(GetNavUnitPos(from));
+            int endNavUnit = GetIndexFromPos(GetNavUnitPos(to));
+
+            NativeList<int> aStarPath = new NativeList<int>(Allocator.TempJob);
+            FindPathJob findPathJob = new FindPathJob()
+            {
+                navGridSizeX = navGridSizeX,
+                navGridSizeY = navGridSizeY,
+                navGridSizeZ = navGridSizeZ,
+                navUnits = _navUnits,
+                neighborOffsets = _neighborOffsets,
+                start = startNavUnit,
+                end = endNavUnit,
+                path = aStarPath,
+            };
+            JobHandle jobHandle = findPathJob.Schedule();
+            jobHandle.Complete();
+
+            List<Vector3> path = new List<Vector3>();
+            for (int i = 0; i < aStarPath.Length; i++)
+            {
+                path.Add(_navUnits[aStarPath[i]].GetRelativeBounds().center);
+            }
+
+            aStarPath.Dispose();
+
+            return path;
+        }
+
+        public int GetIndexFromPos(int3 pos)
+        {
+            return GetIndexFromPos(pos.x, pos.y, pos.z);
+        }
+
+        public int GetIndexFromPos(int i, int j, int k)
+        {
+            if (i < 0 || j < 0 || k < 0)
+            {
+                return -1;
+            }
+
+            if (i >= navGridSizeX || j >= navGridSizeY || k >= navGridSizeZ)
+            {
+                return -1;
+            }
+
+            return (navGridSizeX * navGridSizeZ * j) + (navGridSizeX * k) + i;
+        }
+
+        public int3 GetPosFromIndex(int index)
+        {
+            int3 pos;
+            pos.y = index / (navGridSizeX * navGridSizeZ);
+
+            index = index % (navGridSizeX * navGridSizeZ);
+            pos.z = index / navGridSizeX;
+
+            index = index % navGridSizeX;
+            pos.x = index;
+
+            return pos;
         }
 
         #endregion

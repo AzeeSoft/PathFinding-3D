@@ -15,10 +15,10 @@ namespace Azee.PathFinding3D
 
             if (Application.isPlaying)
             {
-                List<NavUnit> navUnitPath = NavGrid.Instance.GetShortestPath(transform.position, target.position);
-                foreach (NavUnit navUnit in navUnitPath)
+                List<Vector3> navUnitPath = NavGrid.Instance.GetShortestPath(transform.position, target.position);
+                foreach (Vector3 pos in navUnitPath)
                 {
-                    path.Add(navUnit.Parent.transform.TransformPoint(navUnit.GetRelativeBounds().center));
+                    path.Add(NavGrid.Instance.transform.TransformPoint(pos));
                 }
             }
 

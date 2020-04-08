@@ -73,7 +73,10 @@ namespace Azee.PathFinding3D.Example
         {
             if (Agent)
             {
+                float startTime = Time.realtimeSinceStartup;
                 _lastFoundPath = Agent.FindPathToTarget(Target);
+
+                print("Time: " + (Time.realtimeSinceStartup - startTime) * 1000f);
             }
         }
 
