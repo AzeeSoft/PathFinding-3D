@@ -396,12 +396,10 @@ namespace Azee.PathFinding3D
 
                 Bounds endNavUnitBounds = navUnits[endNavUnit].GetRelativeBounds();
 
-                // SimplePriorityQueue<int> openQueue = new SimplePriorityQueue<int>();
-                // HashSet<int> closedQueue = new HashSet<int>();
+                // SimplePriorityQueue<int> openList = new SimplePriorityQueue<int>();
+                // HashSet<int> closedList = new HashSet<int>();
 
                 NativeMinHeap<int> openList = new NativeMinHeap<int>(Allocator.Temp);
-                // NativeList<int> openList = new NativeList<int>(Allocator.Temp);
-                // NativeMinHeap<int> openList = new NativeMinHeap<int>(navUnits.Length, Allocator.Temp);
                 NativeArray<bool> closedList = new NativeArray<bool>(navUnits.Length, Allocator.Temp);
 
                 int l = 0;
@@ -416,24 +414,15 @@ namespace Azee.PathFinding3D
                         }
                     }
                 }
-
-                // openList.Add(startNavUnit);
+                
                 openList.Push(startNavUnit, navUnits[startNavUnit].AStarData.F);
 
                 while (openList.Size() > 0)
-                // while (openList.HasNext())
                 {
-                    // int cheapestIndex = FindCheapestIndex(openList);
-                    // int curNavUnit = openList[cheapestIndex];
-                    // openList.RemoveAtSwapBack(cheapestIndex);
-
                     int curNavUnit = openList.Pop();
                     int3 curNavPos = GetPosFromIndex(curNavUnit);
 
-
                     Bounds curNavUnitBounds = navUnits[curNavUnit].GetRelativeBounds();
-
-                    // print("AStar Loop");
 
                     for (int i = 0; i < neighborOffsets.Length; i++)
                     {
@@ -444,7 +433,6 @@ namespace Azee.PathFinding3D
 
                         if (neighbor < 0 || !navUnits[neighbor].IsNavigable())
                         {
-                            // print("Exiting: " + neighbor);
                             continue;
                         }
 
@@ -458,8 +446,6 @@ namespace Azee.PathFinding3D
 
                         if (!closedList[neighbor])
                         {
-                            // print("Adding to closed queue");
-
                             Bounds neighborBounds = navUnits[neighbor].GetRelativeBounds();
 
                             float newG = navUnits[curNavUnit].AStarData.G +
@@ -471,7 +457,7 @@ namespace Azee.PathFinding3D
                             {
                                 navUnits[neighbor] =
                                     navUnits[neighbor].UpdatePathFindingValues(newF, newG, newH, curNavUnit);
-                                // openList.Add(neighbor);
+
                                 openList.Push(neighbor, navUnits[neighbor].AStarData.F);
                             }
                         }
