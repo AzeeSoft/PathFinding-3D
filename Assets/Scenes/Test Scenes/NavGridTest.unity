@@ -150,7 +150,7 @@ Transform:
   m_GameObject: {fileID: 30053995}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 200, y: 1, z: 200}
+  m_LocalScale: {x: 587.04, y: 2.9352, z: 587.04}
   m_Children: []
   m_Father: {fileID: 1435558638}
   m_RootOrder: 0
@@ -382,7 +382,7 @@ MonoBehaviour:
   navGridSizeZ: 50
   _allowGridRotation: 0
   ShowNavGrid: 1
-  ShowNavUnits: 1
+  ShowNavUnits: 0
   ShowNavigableUnits: 0
   ShowNonNavigableUnits: 1
   BtnBakeNavGrid: 0
@@ -604,7 +604,7 @@ MonoBehaviour:
   LineRenderer: {fileID: 258633179}
   Target: {fileID: 1688464318}
   PathSegments: 1
-  FindPathContinuously: 0
+  FindPathContinuously: 1
   BtnFindNewPath: 0
 --- !u!120 &258633179
 LineRenderer:
