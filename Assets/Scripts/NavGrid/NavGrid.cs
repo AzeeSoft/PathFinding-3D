@@ -59,6 +59,11 @@ namespace Azee.PathFinding3D
         private void Awake()
         {
             Instance = this;
+
+            if (_navUnits.IsCreated)
+            {
+                _navUnits.Dispose();
+            }
             _navUnits = new NativeArray<NavUnit>(1000, Allocator.Persistent);
 
             ValidateGrid();
@@ -119,6 +124,11 @@ namespace Azee.PathFinding3D
 
         void ComputeNeighborOffsets()
         {
+            if (_neighborOffsets.IsCreated)
+            {
+                _neighborOffsets.Dispose();
+            }
+
             _neighborOffsets = new NativeArray<int3>(26, Allocator.Persistent);
 
             int l = 0;
@@ -169,7 +179,7 @@ namespace Azee.PathFinding3D
 
         void ResetNavUnits()
         {
-            if (_navUnits.Length > 0)
+            if (_navUnits.IsCreated)
             {
                 _navUnits.Dispose();
             }
@@ -469,6 +479,9 @@ namespace Azee.PathFinding3D
 
                     closedList[curNavUnit] = true;
                 }
+
+                openList.Dispose();
+                closedList.Dispose();
             }
 
             private int FindCheapestIndex(NativeList<int> openList)
